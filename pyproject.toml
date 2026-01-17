@@ -3,8 +3,11 @@ name = "post-fire-analytics"
 version = "0.1.0"
 description = "Post-fire analytics project"
 readme = "README.md"
-requires-python = ">=3.9"
-dependencies = []
+requires-python = ">=3.12"
+dependencies = [
+    "pytest>=9.0.2",
+    "requests>=2.31.0",
+]
 
 [project.optional-dependencies]
 dev = [
@@ -17,13 +20,16 @@ dev = [
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
+[tool.hatch.build.targets.wheel]
+packages = ["post_fire_analytics"]
+
 [tool.ruff]
 # Set the maximum line length to 100.
 line-length = 100
 indent-width = 4
 
-# Assume Python 3.9+
-target-version = "py39"
+# Assume Python 3.12+
+target-version = "py312"
 
 [tool.ruff.lint]
 # Enable pycodestyle (`E`) and Pyflakes (`F`) codes by default.
@@ -57,7 +63,7 @@ skip-magic-trailing-comma = false
 line-ending = "auto"
 
 [tool.mypy]
-python_version = "3.9"
+python_version = "3.12"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true
