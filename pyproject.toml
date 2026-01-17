@@ -78,3 +78,9 @@ strict_equality = true
 [[tool.mypy.overrides]]
 module = "tests.*"
 disallow_untyped_defs = false
+
+[dependency-groups]
+dev = [
+    "geopandas>=1.1.2",
+    "loguru>=0.7.3",
+]
