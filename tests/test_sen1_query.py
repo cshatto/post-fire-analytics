@@ -17,3 +17,6 @@ def test_query_by_geojson(tmp_path: Path, test_geojson: Path) -> None:
     
     assert isinstance(products, list)
     assert len(products) >= 0
+    
+    if products:
+        query.download(products[:1])
