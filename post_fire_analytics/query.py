@@ -1,9 +1,10 @@
 import datetime
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
 import geopandas as gpd
 from cdsetool.credentials import Credentials
+from cdsetool.download import download_features
 from cdsetool.query import query_features
 from loguru import logger
 
@@ -23,32 +24,29 @@ class Sentinel1Query:
         self.credentials = Credentials(username, password)
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
-        
-        self.start_date = (
-            start_date if isinstance(start_date, datetime.datetime)
-            else datetime.datetime.strptime(start_date, "%Y-%m-%d")
-        )
-        self.end_date = (
-            end_date if isinstance(end_date, datetime.datetime)
-            else datetime.datetime.strptime(end_date, "%Y-%m-%d")
-        )
-        
+        self.start_date = self._parse_date(start_date)
+        self.end_date = self._parse_date(end_date)
         self.product_type = product_type
         self.orbit_direction = orbit_direction
         self.sensor_mode = sensor_mode
 
-    def query_by_geojson(self, geojson_path: str | Path) -> list:
-        gdf = gpd.read_file(geojson_path)
-        bounds = gdf.total_bounds
-        bbox = [bounds[0], bounds[1], bounds[2], bounds[3]]
+    @staticmethod
+    def _parse_date(date: str | datetime.datetime) -> datetime.datetime:
+        return (
+            date if isinstance(date, datetime.datetime)
+            else datetime.datetime.strptime(date, "%Y-%m-%d")
+        )
+
+    def query_by_geojson(self, geojson_path: str | Path) -> list[dict[str, Any]]:
+        bounds = gpd.read_file(geojson_path).total_bounds
         logger.info(
             f"Querying Sentinel-1 for bbox: "
-            f"[{bbox[0]:.4f}, {bbox[1]:.4f}, {bbox[2]:.4f}, {bbox[3]:.4f}]"
+            f"[{bounds[0]:.4f}, {bounds[1]:.4f}, {bounds[2]:.4f}, {bounds[3]:.4f}]"
         )
-        return self._query(bbox)
+        return self._query(bounds.tolist())
 
-    def _query(self, bbox: list) -> list:
-        # Format bbox as "west,south,east,north"
+    def _query(self, bbox: list[float]) -> list[dict[str, Any]]:
+        # Format bbox as comma-separated string: "west,south,east,north"
         box_str = f"{bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]}"
         
         search_terms = {
@@ -58,59 +56,30 @@ class Sentinel1Query:
             "productType": self.product_type,
             "sensorMode": self.sensor_mode,
         }
-        
         if self.orbit_direction:
             search_terms["orbitDirection"] = self.orbit_direction
-        
-        features = query_features(
-            collection="Sentinel1",
-            search_terms=search_terms,
-        )
-        
-        products = list(features)
+
+        products = list(query_features(collection="Sentinel1", search_terms=search_terms))
         logger.info(f"Found {len(products)} Sentinel-1 products")
-        
+
         for i, product in enumerate(products[:5], 1):
             props = product.get("properties", {})
-            product_id = props.get("id", "Unknown")
-            title = props.get("title", "Unknown")
-            start_date = props.get("startDate", "Unknown")
-            orbit_direction = props.get("orbitDirection", "Unknown")
-            polarisation = props.get("polarisation", "Unknown")
-            size_bytes = props.get("services", {}).get("download", {}).get("size", 0)
-            
-            # Convert size to human-readable format
-            if size_bytes >= 1_073_741_824:  # >= 1 GB
-                size_str = f"{size_bytes / 1_073_741_824:.2f} GB"
-            elif size_bytes >= 1_048_576:  # >= 1 MB
-                size_str = f"{size_bytes / 1_048_576:.2f} MB"
-            elif size_bytes >= 1024:  # >= 1 KB
-                size_str = f"{size_bytes / 1024:.2f} KB"
-            else:
-                size_str = f"{size_bytes} B"
-            
             logger.info(
-                f"  [{i}] {title} | "
-                f"ID: {product_id} | "
-                f"Date: {start_date} | "
-                f"Orbit: {orbit_direction} | "
-                f"Pol: {polarisation} | "
-                f"Size: {size_str}"
+                f"  [{i}] {props.get('title', 'Unknown')} | "
+                f"ID: {props.get('id', 'Unknown')} | "
+                f"Date: {props.get('startDate', 'Unknown')} | "
+                f"Orbit: {props.get('orbitDirection', 'Unknown')} | "
+                f"Pol: {props.get('polarisation', 'Unknown')}"
             )
-        
+
         if len(products) > 5:
             logger.info(f"  ... and {len(products) - 5} more products")
-        
+
         return products
 
-
-    def download(self, products: list) -> None:
-        from cdsetool.download import download_features
-        
+    def download(self, products: list[dict[str, Any]]) -> None:
         logger.info(f"Starting download of {len(products)} products to {self.output_dir}")
-        
         options = {"credentials": self.credentials}
         for _ in download_features(features=products, path=str(self.output_dir), options=options):
-            pass  # Iterate through the generator to trigger downloads
-        
+            pass
         logger.success(f"Download complete. Files saved to {self.output_dir}")

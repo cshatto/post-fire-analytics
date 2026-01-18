@@ -173,37 +173,20 @@ class Sentinel1Preprocessor:
     ) -> xr.DataArray:
         import geopandas as gpd
         
-        logger.info(f"Cropping image (GeoJSON: {geojson_path})")
+        logger.info(f"Processing image with GeoJSON reference: {geojson_path}")
         
-        # Read GeoJSON for reference
+        # Read GeoJSON for reference (bounds logged for info only)
         gdf = gpd.read_file(geojson_path)
         bounds = gdf.total_bounds
         logger.info(f"GeoJSON bounds: {bounds} (lat/lon)")
         
-        # Crop to center region (simplified approach)
-        # For a proper solution, would need to georeference the SAR data
-        height, width = data.shape
-        crop_size = 2000  # pixels
+        # No clipping - return full image extent
+        logger.info(f"Using full image extent: {data.shape}")
         
-        center_y, center_x = height // 2, width // 2
-        half_crop = crop_size // 2
+        # Add metadata about the reference GeoJSON
+        data.attrs["geojson_reference"] = str(geojson_path)
         
-        y_start = max(0, center_y - half_crop)
-        y_end = min(height, center_y + half_crop)
-        x_start = max(0, center_x - half_crop)
-        x_end = min(width, center_x + half_crop)
-        
-        logger.info(f"Cropping from {data.shape} to region: "
-                   f"y[{y_start}:{y_end}], x[{x_start}:{x_end}]")
-        
-        # Crop the data
-        cropped = data.isel(y=slice(y_start, y_end), x=slice(x_start, x_end))
-        cropped.attrs.update(data.attrs)
-        cropped.attrs["cropped"] = f"center_{crop_size}x{crop_size}"
-        cropped.attrs["geojson_reference"] = str(geojson_path)
-        
-        logger.info(f"Cropped to shape {cropped.shape}")
-        return cropped
+        return data
 
     def save(
         self,
