@@ -60,3 +60,4 @@ Thumbs.db
 data/
 *.csv
 *.db
+tests/assets/*.geojson
