@@ -108,9 +108,9 @@ class Sentinel1Query:
         from cdsetool.download import download_features
         
         logger.info(f"Starting download of {len(products)} products to {self.output_dir}")
-        download_features(
-            features=products,
-            download_dir=str(self.output_dir),
-            credentials=self.credentials,
-        )
+        
+        options = {"credentials": self.credentials}
+        for _ in download_features(features=products, path=str(self.output_dir), options=options):
+            pass  # Iterate through the generator to trigger downloads
+        
         logger.success(f"Download complete. Files saved to {self.output_dir}")
