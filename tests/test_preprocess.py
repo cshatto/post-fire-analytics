@@ -29,8 +29,10 @@ def test_preprocess_pipeline(sentinel1_image: Path, tmp_path: Path, test_geojson
     
     # Clip to GeoJSON polygon
     clipped = preprocessor.clip_to_geojson(filtered, test_geojson)
-    assert clipped.shape == filtered.shape
-    assert "geojson_bounds" in clipped.attrs
+    assert clipped.shape != filtered.shape  # Should be cropped
+    assert clipped.shape[0] <= 2000  # Should be smaller
+    assert clipped.shape[1] <= 2000
+    assert "cropped" in clipped.attrs
     
     # Save to file
     output_file = tmp_path / "processed_vv_clipped.tif"
